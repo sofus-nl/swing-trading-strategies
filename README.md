@@ -1,682 +1,310 @@
-# Swing Trading Strategies: A Systematic Reference Library
+# Swing Trading Strategies — A Systematic Reference Library
 
-This is an open-source reference library of 10 battle-tested swing trading strategies with exact entry/exit rules and backtested performance data. Maintained by [EasySwing.trading](https://easyswing.trading) -- a swing trading screener that scans 2,000+ US stocks for these setups daily. Each strategy includes specific entry conditions, risk management rules, and performance benchmarks sourced from published research and quantified backtests.
+An open-source reference library of swing trading setups with exact entry/exit rules, source attribution, and notes on when each strategy works (and when it doesn't). Maintained alongside [EasySwing.trading](https://easyswing.trading) — a swing trading screener that scans ~2,000 US equities for these setups daily and journals them with regime context.
+
+Every strategy here is sourced from published research (Minervini, O'Neil, Weinstein, Connors, Bulkowski, Kullamägi, Wilder, Da/Gurun/Warachka, Blitz/Huij/Martens, Dennis/Eckhardt, Jegadeesh/Titman). Where we cite live performance, the source is the EasySwing autoresearch pipeline — a walk-forward backtest with holdout, robustness, and permutation-null gates. See the [methodology notes](#methodology-honesty-notes) at the bottom for what those gates do and don't prove.
 
 ---
 
 ## Table of Contents
 
-- [Strategy Comparison](#strategy-comparison)
-- [1. VCP (Volatility Contraction Pattern)](#1-vcp-volatility-contraction-pattern)
-- [2. Cup and Handle](#2-cup-and-handle)
-- [3. EMA Crossover (9/21)](#3-ema-crossover-921)
-- [4. RSI Pullback to 40](#4-rsi-pullback-to-40)
-- [5. VWAP Reclaim](#5-vwap-reclaim)
-- [6. Power Earnings Gap (PEG)](#6-power-earnings-gap-peg)
-- [7. Stage 2 Breakout (Weinstein)](#7-stage-2-breakout-weinstein)
-- [8. Bull Flag / Pennant](#8-bull-flag--pennant)
-- [9. Anchored VWAP Bounce](#9-anchored-vwap-bounce)
-- [10. Triple RSI Divergence](#10-triple-rsi-divergence)
-- [Market Regime Guide](#market-regime-guide)
-- [Risk Management Principles](#risk-management-principles)
-- [Resources and Further Reading](#resources-and-further-reading)
+- [Quick reference: credentialed strategies](#quick-reference-credentialed-strategies)
+- [Strategy notes](#strategy-notes)
+  - [Momentum / breakout family](#momentum--breakout-family)
+  - [Trend continuation family](#trend-continuation-family)
+  - [Mean reversion family](#mean-reversion-family)
+  - [Catalyst family](#catalyst-family)
+- [Honorable mentions](#honorable-mentions)
+- [Market regime selection](#market-regime-selection)
+- [Risk management principles](#risk-management-principles)
+- [Resources and further reading](#resources-and-further-reading)
+- [Methodology honesty notes](#methodology-honesty-notes)
 - [FAQ](#faq)
 - [Disclaimer](#disclaimer)
 
 ---
 
-## Strategy Comparison
+## Quick reference: credentialed strategies
 
-| Strategy | Direction | Family | Win Rate Range | Avg R:R | Typical Hold | Best Market Regime |
-|---|---|---|---|---|---|---|
-| VCP (Volatility Contraction) | Long | Momentum | 65-72% | 1.8:1 | 8-12 days | Trending Up |
-| Cup & Handle | Long | Momentum | 62-69% | 2.1:1 | 12-20 days | Trending Up |
-| EMA Crossover (9/21) | Long | Trend-Following | 55-62% | 1.5:1 | 5-15 days | Trending Up |
-| RSI Pullback to 40 | Long | Mean-Reversion | 70-78% | 0.9:1 | 3-5 days | Trending Up / Ranging |
-| VWAP Reclaim | Long | Intraday/Swing | 58-65% | 1.3:1 | 1-3 days | Any |
-| Power Earnings Gap | Long | Catalyst | 60-68% | 2.0:1 | 5-15 days | Any |
-| Stage 2 Breakout | Long | Position/Swing | 55-65% | 2.5:1 | 15-40 days | Trending Up |
-| Bull Flag / Pennant | Long | Continuation | 60-67% | 1.6:1 | 3-8 days | Trending Up |
-| Anchored VWAP Bounce | Long | Institutional | 55-63% | 1.4:1 | 3-10 days | Trending Up / Ranging |
-| Triple RSI Divergence | Long/Short | Reversal | 50-58% | 1.8:1 | 5-12 days | Ranging / Transitioning |
+The table below lists strategies that have passed walk-forward validation on a holdout window with a robustness neighborhood and a permutation null. **Tuned** means parameters are live-adopted; **tuned-provisional** means the strategy passes the profitability gates but the permutation p-value is degenerate (the detector's intrinsic gates already filter the universe exhaustively, so shuffling returns can't break the signal). Tuned-provisional setups are published for inspection but live params stay at registry defaults until the next sweep promotes them.
 
----
+| Strategy | Direction | Family | Source author | Status | Best regime |
+|---|---|---|---|---|---|
+| VCP Breakout | Long | Momentum | Mark Minervini | tuned-provisional | Bull |
+| Cup & Handle | Long | Momentum | William O'Neil | tuned | Bull |
+| Qullamaggie Breakout | Long | Continuation | Kristjan Kullamägi | tuned | Bull |
+| Trend Pullback (EMA20/SMA50) | Long | Pullback | Composite (Minervini-school) | tuned | Bull / Range |
+| Proximity Pullback (52w high) | Long | Pullback | Composite | tuned | Bull |
+| Power Earnings Gap | Long | Catalyst | Minervini / Zanger | tuned | Bull |
+| Frog-in-the-Pan | Long | Momentum | Da, Gurun, Warachka (2014) | tuned | Bull / Range |
+| MA Stack Confluence (10/21/50/200) | Long | Momentum | Composite | tuned | Bull |
+| ADX Trend Momentum | Long | Momentum | Wilder | tuned | Bull |
+| Residual Momentum | Long | Momentum | Blitz, Huij, Martens (2011) | tuned | Bull |
+| Multi-Period Strength | Long | Momentum | Jegadeesh-Titman lineage | tuned | Bull |
+| Volume-Weighted Trend | Long | Momentum | Composite | tuned | Bull |
+| ROC Breakout | Long | Momentum | Composite (Bulkowski) | tuned | Bull |
+| HHV Breakout (Donchian / Turtle) | Long | Momentum | Dennis, Eckhardt | tuned | Bull |
+| Trend Template Fresh Pass | Long | Momentum | Mark Minervini | tuned | Bull |
+| RSI Reversion (Connors 2-period) | Long | Mean reversion | Larry Connors | tuned-provisional | Bull / Range |
 
-## 1. VCP (Volatility Contraction Pattern)
-
-The VCP is a momentum breakout setup that identifies stocks being accumulated by institutions through a series of contracting price ranges. Backtested across multiple market cycles, it produces a 65-72% win rate with an average reward-to-risk of 1.8:1 (Source: Mark Minervini, *Trade Like a Stock Market Wizard*, 2013; Quantified Strategies backtest, 48+ trades).
-
-### Why It Works
-
-Institutional buyers accumulate shares in stages, creating progressively tighter price contractions as selling pressure (supply) dries up. Each contraction represents fewer remaining sellers. When supply is fully absorbed, even modest buying pressure triggers a breakout.
-
-> "The VCP is the most reliable base pattern I've found in my 30+ years of trading." -- Mark Minervini
-
-### Entry Rules
-
-1. Price is above the 50-day, 150-day, and 200-day SMA (moving average stack confirmed)
-2. At least 3 contracting pullbacks are visible in the base, each shallower than the prior
-3. Volume has dried up significantly during the base formation (below 50-day average)
-4. Breakout occurs on volume 40% or more above the 50-day average
-5. Relative Strength rank is above 70 (top 30% of the market)
-6. The 200-day SMA is trending upward for at least 1 month
-7. Price is within 25% of the 52-week high
-
-### Exit Rules
-
-- **Stop Loss:** 1.5x ATR below entry price
-- **Target 1:** 2.0x ATR above entry -- scale out 50% of position
-- **Target 2:** 4.0x ATR above entry -- exit remaining 50%
-- **Trailing Stop:** Below the most recent swing low after Target 1 is hit
-
-### Ideal Market Conditions
-
-The VCP performs best in trending-up markets where institutional money is rotating into growth and momentum names. Avoid this setup in ranging or high-volatility regimes -- the contracting base is more likely to break down when broad market direction is uncertain.
-
-### Performance Summary
-
-| Metric | Value |
-|---|---|
-| Win Rate (Trending Up) | 72% |
-| Win Rate (Ranging) | 45% |
-| Avg R-Multiple | 1.8 |
-| Avg Hold Days | 11 |
-| Sample Size | 48+ trades |
-| Source | Quantified Strategies backtest |
-
-### Pattern Illustration
-
-```
-Price
-  |    /\
-  |   /  \  /\
-  |  /    \/  \ /\
-  | /          \/  \___/--- Breakout ->
-  |________________________
-                    Volume ^
-```
-
-[EasySwing.trading](https://easyswing.trading/strategies) scans for VCP setups daily across 2,000+ US stocks.
+Net profit factor on the holdout window varies from ~1.7 (RSI Reversion) to ~4.5 (VCP Breakout, provisional). For the live numbers and current verdicts see the [methodology and performance page](https://easyswing.trading/performance). The full table with per-strategy holdout PF, trade counts, family, regime, and grade floor is also published as a [two-page PDF cheat sheet](https://easyswing.trading/swing-trading-strategy-cheat-sheet.pdf).
 
 ---
 
-## 2. Cup and Handle
+## Strategy notes
 
-The Cup and Handle is a momentum continuation pattern that signals the resumption of a prior uptrend after a rounded consolidation. Backtested across bull market cycles, it produces a 62-69% win rate with an average reward-to-risk of 2.1:1 (Source: William O'Neil, *How to Make Money in Stocks*, 2009; 55+ trades).
+### Momentum / breakout family
 
-### Why It Works
+#### VCP Breakout (Volatility Contraction Pattern)
 
-The rounded cup forms as weak holders sell during a correction and stronger hands accumulate at lower prices. The handle represents a final shakeout of remaining nervous holders before institutions push through resistance.
+Mark Minervini's signature pattern. A stock makes a series of progressively tighter pullbacks on declining volume while institutions accumulate. The breakout above the final contraction on volume expansion is the trigger.
 
-> "The cup with handle is one of the most important chart patterns in the stock market." -- William O'Neil
+- **Why it works.** Each contraction represents another wave of weak holders being absorbed. When supply dries up, even modest demand resolves the base upward.
+- **Hard gates.** Price above SMA50 / SMA150 / SMA200, RS rank above 70, within 25% of 52-week high, 3+ visible contractions.
+- **Trigger.** Breakout on volume 40%+ above the 50-day average.
+- **Regime.** Bull market only. Win rate collapses in ranging or transitioning environments.
+- **Status.** Tuned-provisional. The detector's intrinsic gates produce a small enough filtered pool that the permutation null degenerates; live params kept at registry defaults pending the next sweep iteration.
+- **Deep dive.** [VCP setup walkthrough](https://easyswing.trading/blog/vcp-setup-volatility-contraction-pattern). Detailed entry rules in [`strategies/01-vcp.md`](strategies/01-vcp.md).
 
-### Entry Rules
+#### Cup & Handle
 
-1. Prior uptrend of at least 30% before the cup begins
-2. Cup depth between 12% and 35% from the prior high
-3. Cup duration is at least 3-6 weeks (rounded bottom, not V-shaped)
-4. Handle forms in the upper 15% of the cup with depth less than 12%
-5. Volume dries up during handle formation (below 50-day average)
-6. Breakout above the handle high on volume 40%+ above average
-7. Relative Strength rank at or above 80
+William O'Neil's continuation pattern. A rounded U-shaped consolidation (the cup) followed by a tight pullback (the handle), then a breakout above the handle high.
 
-### Exit Rules
+- **Why it works.** The cup is weak holders selling and stronger hands accumulating. The handle shakes out the last nervous holders before institutions push through resistance.
+- **Hard gates.** Prior uptrend of 30%+, cup depth 12–35%, cup duration 3–6+ weeks, handle in upper 15% of cup with depth < 12%.
+- **Trigger.** Breakout above handle high on volume 40%+ above average, RS rank above 80.
+- **Regime.** Strong bull market. Win rate drops sharply in ranging conditions.
+- **Status.** Tuned.
+- **Deep dive.** [Cup and Handle pattern guide](https://easyswing.trading/blog/cup-handle-pattern-swing-trading). Detailed rules in [`strategies/02-cup-and-handle.md`](strategies/02-cup-and-handle.md).
 
-- **Stop Loss:** 1.5x ATR below entry, or below the handle low (whichever is tighter)
-- **Target 1:** 2.5x ATR above entry -- scale out 40%
-- **Target 2:** 5.0x ATR above entry -- exit remaining 60%
-- **Trailing Stop:** Below the most recent swing low. Sell immediately if price closes back inside the cup.
+#### Qullamaggie Breakout
 
-### Ideal Market Conditions
+Kristjan Kullamägi's continuation setup. After a sharp directional leg (often +30% in 30–90 days), the stock consolidates in a tight range and then breaks out for a second leg.
 
-Cup and Handle patterns perform best in strong bull markets when institutional money is actively flowing into equities. This pattern has a poor track record in ranging markets (32% win rate) and should be avoided entirely in bear markets.
+- **Why it works.** The initial leg attracts institutional attention; the tight consolidation is profit-taking absorbed by new buyers. The second leg is the genuine extension.
+- **Hard gates.** Prior leg of 30%+, tight base 5–15 bars, narrow range bars during the base, RS rank high.
+- **Trigger.** Breakout above the base high on a volume surge.
+- **Regime.** Bull market. Pattern is essentially noise in choppy conditions.
+- **Status.** Tuned.
+- **Deep dive.** [Qullamaggie Breakout setup](https://easyswing.trading/blog/qullamaggie-breakout-continuation-setup). See [`strategies/11-qullamaggie-breakout.md`](strategies/11-qullamaggie-breakout.md).
 
-### Performance Summary
+#### Trend Template Fresh Pass
 
-| Metric | Value |
-|---|---|
-| Win Rate (Trending Up) | 69% |
-| Win Rate (Ranging) | 32% |
-| Avg R-Multiple | 2.1 |
-| Avg Hold Days | 16 |
-| Sample Size | 55+ trades |
-| Source | Quantified Strategies backtest |
+Mark Minervini's Trend Template is the checklist a stock must clear to be considered for a momentum long: price above SMA150 and SMA200, SMA150 above SMA200, both rising for at least a month, price within 25% of 52w high and at least 30% off 52w low, RS rank top quartile. The "fresh pass" variant fires when a stock passes the template for the first time in N days — the moment it joins the leadership cohort.
 
-### Pattern Illustration
+- **Why the fresh-pass variant.** Late entries on stocks already deep into the template lose the early advance. The fresh pass captures the regime transition for the individual name.
+- **Status.** Tuned. See [`strategies/16-trend-template-fresh-pass.md`](strategies/16-trend-template-fresh-pass.md).
+- **Background.** [Stage 2 analysis explained](https://easyswing.trading/blog/stage-2-stock-analysis-minervini-uptrend) — the Trend Template is the operational implementation of "stock is in Stage 2."
 
-```
-Price
-  |  \                   /-- Handle --/--- Breakout ->
-  |   \                 / \         /
-  |    \               /   \___ __/
-  |     \             /
-  |      \___________/
-  |         Cup (3-6 weeks)
-  |________________________________
-```
+#### MA Stack Confluence (10/21/50/200)
 
-[EasySwing.trading](https://easyswing.trading/strategies) scans for Cup and Handle setups daily across 2,000+ US stocks.
+A composite setup that requires all four moving averages to be in perfect bullish alignment: EMA10 > EMA21 > SMA50 > SMA200, all sloped upward, with price riding the EMA10. The "stack confluence" gate is the strictest version of the moving-average filter family.
 
----
+- **Why it works.** Perfect alignment with rising slopes confirms multi-timeframe agreement: short-term, intermediate, and long-term participants are all positioned the same way.
+- **Status.** Tuned. See [`strategies/13-ma-stack-confluence.md`](strategies/13-ma-stack-confluence.md).
+- **Background.** [Moving averages for swing trading](https://easyswing.trading/blog/moving-averages-for-swing-trading).
 
-## 3. EMA Crossover (9/21)
+#### ADX Trend Momentum
 
-The EMA Crossover is a trend-following setup that identifies momentum shifts when the short-term exponential moving average crosses above the longer-term EMA. Across various market conditions, it produces a 55-62% win rate with an average reward-to-risk of 1.5:1 (Source: multiple quantified backtests).
+Wilder's Average Directional Index (ADX) measures trend strength independent of direction. The setup combines a rising ADX above 25 (genuine trend present) with +DI above -DI (direction is up) and price above the 50-day SMA.
 
-### Why It Works
+- **Why it works.** ADX confirms that the move is trending rather than oscillating. Many momentum failures happen when entries occur in choppy conditions that look directional on a single bar.
+- **Status.** Tuned. See [`strategies/14-adx-trend-momentum.md`](strategies/14-adx-trend-momentum.md).
 
-Moving average crossovers capture the transition from consolidation to trending behavior. The 9/21 EMA pair is fast enough to catch early moves while filtering out most noise. ADX confirmation ensures the crossover occurs in a genuinely trending environment rather than a choppy range.
+#### Residual Momentum
 
-### Entry Rules
+Blitz, Huij & Martens (2011) showed that momentum signals stripped of their factor exposures (market beta, size, value) carry more information than raw price momentum. A "poor man's" residual momentum filters stocks whose 6–12 month return is high after subtracting sector or index beta.
 
-1. EMA(9) crosses above EMA(21)
-2. Price is above the SMA(50)
-3. Volume is above the 20-day average on the crossover day
-4. ADX(14) is above 20 (confirming a trending market)
-5. RSI(14) is between 50 and 70 (momentum present but not overextended)
+- **Why it works.** Standard momentum has periodic crashes when leadership rotates. Residual momentum reduces the rotation risk by isolating stock-specific strength.
+- **Status.** Tuned. See [`strategies/15-residual-momentum.md`](strategies/15-residual-momentum.md).
+- **Source.** Blitz, Huij, Martens, *Residual Momentum*, Journal of Empirical Finance, 2011.
 
-### Exit Rules
+#### Multi-Period Strength
 
-- **Stop Loss:** Below the EMA(21) or 1.5x ATR below entry, whichever is closer
-- **Target 1:** 1.5x ATR above entry
-- **Target 2:** 3.0x ATR above entry
-- **Trailing Stop:** ATR-based at 1.5x ATR from recent highs
+The Jegadeesh-Titman momentum effect is most robust when measured across multiple lookback windows (3-month, 6-month, 12-month) that confirm each other. Multi-period strength requires positive momentum across all three horizons simultaneously.
 
-### Ideal Market Conditions
+- **Why it works.** Single-window momentum can be a recent-news artifact. Multi-window confirmation indicates the strength is structural, not a one-week pop.
+- **Status.** Tuned. See [`strategies/12-multi-period-strength.md`](strategies/12-multi-period-strength.md).
+- **Source.** Jegadeesh & Titman, *Returns to Buying Winners and Selling Losers*, Journal of Finance, 1993.
 
-EMA Crossovers work best in trending markets with sustained directional moves. This setup generates many false signals in choppy or ranging environments, so always confirm with ADX above 20 before entering.
+#### Volume-Weighted Trend
 
-### Performance Summary
+A trend confirmation where price is above the rising 21-day VWAP and recent up-volume materially exceeds recent down-volume. The setup is the long-form (multi-day) cousin of intraday VWAP-reclaim setups.
 
-| Metric | Value |
-|---|---|
-| Win Rate (Trending) | 62% |
-| Win Rate (Ranging) | 38% |
-| Avg R-Multiple | 1.5 |
-| Avg Hold Days | 10 |
-| Sample Size | 120+ trades |
-| Source | Quantified Strategies backtest |
+- **Why it works.** VWAP is the institutional benchmark. Price persistently above VWAP with up-volume dominance means the average institutional position taken in this period is profitable — typically a self-reinforcing dynamic.
+- **Status.** Tuned. See [`strategies/17-volume-weighted-trend.md`](strategies/17-volume-weighted-trend.md).
+- **Background.** [Volume analysis for swing trading](https://easyswing.trading/blog/volume-analysis-swing-trading).
 
-### Pattern Illustration
+#### ROC Breakout
 
-```
-Price
-  |                      /-- Price continues ->
-  |                    /
-  |        ----EMA9--x---------->
-  |       /      --x--EMA21---->
-  |  ____/      /
-  | /          /
-  |________________________________
-              ^ Crossover (buy)
-```
+Rate-of-Change measures the percent return over a fixed lookback. A ROC Breakout fires when the 21-day ROC is accelerating into a price breakout — momentum confirms breakout legitimacy.
 
-[EasySwing.trading](https://easyswing.trading/strategies) scans for EMA Crossover setups daily across 2,000+ US stocks.
+- **Why it works.** Many breakouts on absolute price terms are weak when momentum is flat or decelerating. Accelerating ROC at the breakout point is the difference between a real leg and a fakeout.
+- **Status.** Tuned. See [`strategies/18-roc-breakout.md`](strategies/18-roc-breakout.md).
 
----
+#### HHV Breakout (Donchian / Turtle)
 
-## 4. RSI Pullback to 40
+The classic Donchian channel breakout: enter when price closes above the highest high of the last N bars (typically 20 or 55). This is the foundation of the Turtle trading system designed by Richard Dennis and William Eckhardt.
 
-The RSI Pullback is a mean-reversion continuation setup that enters strong uptrends when momentum temporarily cools to the 40-50 RSI zone. Backtested on US equities, it produces a 70-78% win rate with an average reward-to-risk of 0.9:1 (Source: Larry Connors, *Short Term Trading Strategies That Work*, 2009; Quantified Strategies).
+- **Why it works.** New N-day highs are persistent. The original Turtle program demonstrated this on commodities; subsequent equity research confirms the effect on US stocks with appropriate filters.
+- **Status.** Tuned. See [`strategies/19-hhv-breakout.md`](strategies/19-hhv-breakout.md).
+- **Source.** Curtis Faith, *Way of the Turtle*, 2007. Original Dennis/Eckhardt system from the early 1980s.
 
-### Why It Works
+#### Frog-in-the-Pan
 
-In a strong uptrend, RSI pulling back from overbought territory to the 40-50 zone represents a healthy pause -- not a reversal. Institutional buyers use these pauses to add to positions, creating reliable bounce points. The high win rate compensates for the modest R-multiple.
+Da, Gurun & Warachka (2014) named this effect: information arrives in small, gradual increments rather than as a single news event, so a stock with consistent small daily gains is being repriced quietly by informed participants. The detector measures "information discreteness" — small signed daily returns that compound into a large cumulative move.
 
-### Entry Rules
+- **Why it works.** Markets under-react to a slow drumbeat of small news because no single bar grabs attention. The full repricing arrives over months. Catching it early captures the gap between current price and informed value.
+- **Status.** Tuned. See [`strategies/20-frog-in-the-pan.md`](strategies/20-frog-in-the-pan.md).
+- **Source.** Da, Gurun, Warachka, *Frog in the Pan: Continuous Information and Momentum*, Review of Financial Studies, 2014.
 
-1. Price is above the SMA(200) (long-term uptrend confirmed)
-2. RSI(14) pulls back to the 40-50 zone from above 70 within the last 10 bars
-3. Price holds above a rising EMA(21)
-4. Volume is declining during the pullback (no distribution)
-5. Bounce candle closes in the upper 60% of its range (buying pressure visible)
+### Trend continuation family
 
-### Exit Rules
+#### Trend Pullback (EMA20 / SMA50)
 
-- **Stop Loss:** Below the swing low of the pullback or 2.0x ATR below entry
-- **Target 1:** 1.5x ATR above entry, or when RSI(14) returns above 70 -- exit 100%
-- **Trailing Stop:** 5% trailing from highest close
+A textbook pullback continuation in an established uptrend. Stock is above its SMA50, pulls back to (or briefly through) the rising EMA20, then resumes.
 
-### Ideal Market Conditions
+- **Why it works.** In a trend, profit-taking creates a temporary supply spike that resolves at a moving-average reference. Institutional buyers add at the pullback. The trend resumes.
+- **Hard gates.** Price above SMA50, EMA20 above SMA50 and rising, RS rank at least 96 (top 4% of universe) — the strict RS gate is what differentiates the tuned version from the textbook setup.
+- **Trigger.** Bounce from EMA20 with a confirmation candle, grade A only.
+- **Regime.** Bull or range.
+- **Status.** Tuned with the strict RS gate. Without the RS≥96 filter the win rate drops materially.
+- **Deep dive.** [Pullback to rising MA — trend entry](https://easyswing.trading/blog/pullback-to-rising-ma-trend-entry).
 
-RSI Pullbacks work in both trending-up and ranging markets -- any environment where the broader trend is intact. Avoid in downtrending markets where what looks like a pullback may be the start of a deeper decline.
+#### Proximity Pullback (52-Week High)
 
-### Performance Summary
+A variant of trend pullback that requires the stock to be near (within ~5%) of its 52-week high before the pullback. The 52w-high proximity is itself a strong screen — stocks that pull back from new highs and re-base tend to continue.
 
-| Metric | Value |
-|---|---|
-| Win Rate (Trending Up) | 78% |
-| Win Rate (Downtrending) | 35% |
-| Avg R-Multiple | 0.9 |
-| Avg Hold Days | 4 |
-| Sample Size | 200+ trades |
-| Source | Larry Connors / Quantified Strategies |
+- **Why it works.** Stocks within 5% of a 52w high are the leadership cohort. A pullback that holds in this group is qualitatively different from a pullback in a mid-pack stock.
+- **Status.** Tuned. See [`strategies/21-proximity-pullback.md`](strategies/21-proximity-pullback.md).
 
-### Pattern Illustration
+### Mean reversion family
 
-```
-RSI
-70 |----x               x----
-   |     \             /
-50 |      \           /
-40 |-------x---------x--------  <- Buy zone
-30 |
-   |________________________________
+#### RSI Reversion (Connors 2-period)
 
-Price
-   |        \       /--- Continuation ->
-   |         \_____/
-   |     Pullback (3-5 days)
-   |________________________________
-```
+Larry Connors's short-term mean-reversion setup. RSI(2) below 10 in an established uptrend triggers a bounce trade.
 
-[EasySwing.trading](https://easyswing.trading/strategies) scans for RSI Pullback setups daily across 2,000+ US stocks.
+- **Why it works.** Strong uptrends have temporary oversold dislocations that resolve quickly. RSI(2) — much shorter than the conventional RSI(14) — is sensitive enough to catch them without producing false signals in a real downtrend.
+- **Hard gates.** Price above SMA200 (long-term uptrend confirmed), no immediate news catalyst.
+- **Trigger.** RSI(2) below 10, exit on RSI(2) above 70 or after 5 bars.
+- **Status.** Tuned-provisional. Setup is profitable on the holdout but the permutation null degenerates (filtered pool too small). Live params held at registry defaults.
+- **Deep dive.** [RSI mean reversion oversold bounce](https://easyswing.trading/blog/rsi-mean-reversion-oversold-bounce).
+- **Source.** Larry Connors, *Short Term Trading Strategies That Work*, 2009.
+
+### Catalyst family
+
+#### Power Earnings Gap (PEG)
+
+Mark Minervini's catalyst setup. A stock gaps up 5%+ on an earnings beat with volume at least 2x the 50-day average. The gap creates a new support shelf.
+
+- **Why it works.** A gap of this magnitude on this volume is institutional re-positioning, not retail flow. The gap level becomes a structural support because the institutions building positions defend their cost basis.
+- **Hard gates.** Earnings catalyst, gap 5%+, volume 2x+, gap holds (doesn't fill) for 3+ bars.
+- **Trigger.** Entry on day 3+ if gap holds. RS rank above 60.
+- **Regime.** Bull market preferred; can work in ranging markets if the individual catalyst is strong.
+- **Status.** Tuned.
+- **Detailed rules.** [`strategies/06-power-earnings-gap.md`](strategies/06-power-earnings-gap.md).
 
 ---
 
-## 5. VWAP Reclaim
+## Honorable mentions
 
-The VWAP Reclaim is an intraday/swing setup that identifies institutional buying when price recovers the Volume-Weighted Average Price after a morning selloff. Across active trading sessions, it produces a 58-65% win rate with an average reward-to-risk of 1.3:1 (Source: quantified intraday backtests).
+The setups below are community-known and well-documented in trading literature but did not pass our current credentialing process — either because we don't yet have a robust detector implementation, because the holdout permutation null was inconclusive, or because the setup's edge is regime-dependent in ways our walk-forward sweep can't yet capture. They remain in this repository as standalone reference notes.
 
-### Why It Works
-
-VWAP represents the average price weighted by volume -- essentially the "fair value" for the session. When price reclaims VWAP after selling below it, this signals that institutional buyers view current prices as attractive. The volume surge on reclaim confirms real demand rather than a low-volume drift.
-
-### Entry Rules
-
-1. Stock gaps down or sells off below VWAP in the first 30-60 minutes of the session
-2. Price reclaims VWAP with a volume surge (greater than 1.5x the average)
-3. RSI(14) is above 40 at the time of reclaim
-4. Price holds above VWAP for 5 or more consecutive 1-minute candles
-5. Prior day closed above the SMA(20)
-
-### Exit Rules
-
-- **Stop Loss:** Below the session low, or 1.0x ATR below VWAP
-- **Target 1:** Prior day high
-- **Target 2:** Pre-market high or 2.0x ATR above VWAP
-- **Trailing Stop:** Below VWAP for intraday holds, or 1.0x ATR for multi-day
-
-### Ideal Market Conditions
-
-VWAP Reclaims work in any regime that produces high relative volume. The key requirement is activity, not direction. Avoid on low-volume drift days where price floats around VWAP without conviction.
-
-### Performance Summary
-
-| Metric | Value |
-|---|---|
-| Win Rate (High Volume) | 65% |
-| Win Rate (Low Volume) | 42% |
-| Avg R-Multiple | 1.3 |
-| Avg Hold Days | 2 |
-| Sample Size | 80+ trades |
-| Source | Quantified intraday backtest |
-
-### Pattern Illustration
-
-```
-Price
-  |  Open
-  |  |
-  |  v---\
-  |       \   VWAP - - - - - - x - - - ->
-  |        \_____/            / ^
-  |         Low              /  Holds above
-  |                         /
-  |________________________/___________
-   09:30    10:00    10:30    11:00
-```
-
-[EasySwing.trading](https://easyswing.trading/strategies) scans for VWAP Reclaim setups daily across 2,000+ US stocks.
+- [EMA Crossover (9/21)](strategies/03-ema-crossover.md) — classic trend-following crossover. Highly regime-dependent (great in trends, terrible in ranges).
+- [VWAP Reclaim](strategies/05-vwap-reclaim.md) — intraday institutional-flow setup. Mostly useful for day traders; swing application is limited.
+- [Anchored VWAP Bounce](strategies/09-anchored-vwap.md) — Brian Shannon's method. Strong concept but anchor selection introduces too much discretion to backtest cleanly.
+- [Triple RSI Divergence](strategies/10-triple-rsi-divergence.md) — Cardwell methodology. Real effect, but signals are sparse and the formation rules are subjective enough that systematic detection produces high false-positive rates.
+- [Stage 2 Breakout (Weinstein)](strategies/07-stage-2-breakout.md) — Stan Weinstein's framework. Largely subsumed by the Trend Template family (Minervini's operational implementation of Stage 2). Kept here for the original framing.
+- [Bull Flag / Pennant](strategies/08-bull-flag.md) — Bulkowski's flag pattern. Real but difficult to gate systematically without manual chart reading.
 
 ---
 
-## 6. Power Earnings Gap (PEG)
+## Market regime selection
 
-The Power Earnings Gap is a catalyst-driven setup that captures institutional repositioning after a significant earnings beat. Backtested across earnings seasons, it produces a 60-68% win rate with an average reward-to-risk of 2.0:1 (Source: Dan Zanger; Mark Minervini methodology; 45+ trades).
+A strategy's edge is regime-dependent. The same VCP Breakout that returns a strong win rate in a trending bull market drops to near-coin-flip in a ranging market. Identifying the current regime is the highest-leverage decision a swing trader makes before strategy selection.
 
-### Why It Works
+The five regimes:
 
-When a company reports earnings significantly above expectations and the stock gaps up on massive volume, this represents institutional funds rapidly building positions. The gap creates a new support level as these large buyers defend their average cost. Gaps that hold for 3+ days almost never fully fill.
+1. **Trending Up** — rising SMA50/200, breadth expanding, VIX low. Momentum, breakout, and trend-following strategies all work.
+2. **Trending Down** — falling SMA50/200, breadth contracting, VIX rising. Long setups fail systematically. Cash or short-only.
+3. **Ranging** — flat SMA50/200, ADX below 20. Mean-reversion thrives, breakouts fail.
+4. **High Volatility** — VIX above 25, large ATR, unreliable follow-through. Reduce position sizes, prefer quick setups.
+5. **Transitioning** — slopes flattening, regime ambiguous. Reduce exposure by half.
 
-### Entry Rules
+A detailed regime classification checklist and per-strategy effectiveness matrix lives in [`resources/market-regimes.md`](resources/market-regimes.md).
 
-1. Stock gaps up 5% or more on the earnings report
-2. Volume on the gap day is at least 2x the 50-day average
-3. The gap holds above prior resistance levels
-4. Price does not fill the gap for 3 or more trading days
-5. Relative Strength rank is above 60
-
-### Exit Rules
-
-- **Stop Loss:** Below the low of the gap day
-- **Target 1:** 1.5x the gap range above the gap day high
-- **Target 2:** 3x the gap range above the gap day high
-- **Trailing Stop:** Below the most recent swing low
-
-### Ideal Market Conditions
-
-Power Earnings Gaps perform best in bull markets during strong earnings seasons. The setup works in any regime when the individual stock's catalyst is strong enough, but avoid in bear markets where even strong gaps tend to fade.
-
-### Performance Summary
-
-| Metric | Value |
-|---|---|
-| Win Rate (Bull Market) | 68% |
-| Win Rate (Bear Market) | 40% |
-| Avg R-Multiple | 2.0 |
-| Avg Hold Days | 10 |
-| Sample Size | 45+ trades |
-| Source | Zanger / Minervini methodology |
-
-### Pattern Illustration
-
-```
-Price
-  |                    /--- Continuation ->
-  |                   /
-  |           -------/  <- Hold above gap
-  |           |  Gap (5%+)
-  |  --------/
-  | /  Prior trend
-  |________________________________
-         ^ Earnings     ^ Entry (day 3+)
-           (2x volume)
-```
-
-[EasySwing.trading](https://easyswing.trading/strategies) scans for Power Earnings Gap setups daily across 2,000+ US stocks.
+EasySwing detects the current market regime automatically and gates the strategy universe accordingly — see the [bull/bear/choppy regime explainer](https://easyswing.trading/blog/market-regime-bull-bear-choppy).
 
 ---
 
-## 7. Stage 2 Breakout (Weinstein)
+## Risk management principles
 
-The Stage 2 Breakout is a position/swing setup based on Stan Weinstein's stage analysis that identifies stocks transitioning from basing (Stage 1) into a new uptrend (Stage 2). Backtested across full market cycles, it produces a 55-65% win rate with an average reward-to-risk of 2.5:1 (Source: Stan Weinstein, *Secrets for Profiting in Bull and Bear Markets*, 1988).
+Every strategy in this repository assumes disciplined risk management. The fundamentals:
 
-### Why It Works
+- **1–2% rule.** Risk no more than 1–2% of account equity per trade.
+- **Position sizing.** Position size in shares = risk amount / (entry price − stop price). Always derive size from risk, never the other way around.
+- **R-multiple tracking.** Express every trade outcome in multiples of initial risk. After 30+ trades, your average R tells you whether the strategy is working.
+- **Max open positions.** 5–8 concurrent positions depending on account size. More than 8 is a correlation trap.
+- **Drawdown rules.** After 3 consecutive losses, reduce size by 50%. After 5% portfolio drawdown, stop opening new positions for the week. After 10%, move to cash and review.
 
-Weinstein's stage analysis divides a stock's lifecycle into four stages: basing, advancing, topping, and declining. The transition from Stage 1 to Stage 2 is confirmed when the 30-week moving average turns up and price breaks above the base resistance on volume. This marks the beginning of a sustained advance as institutional accumulation becomes visible.
-
-> "Buy in Stage 2, sell in Stage 3 -- it's that simple." -- Stan Weinstein
-
-### Entry Rules
-
-1. The 30-week moving average (approximated as SMA(150) on a daily chart) is rising
-2. Price breaks above Stage 1 base resistance on volume 2x or more above average
-3. Relative Strength line is improving (rising RS rank)
-4. Price has based (Stage 1) for at least 3 months
-5. The breakout occurs on a weekly closing basis, not just intraday
-
-### Exit Rules
-
-- **Stop Loss:** Below the 30-week moving average or the base support level
-- **Target 1:** 20% above entry -- scale out partial position
-- **Target 2:** Hold remaining position until Stage 3 signs appear (flattening 30-week MA, volume climaxes)
-- **Trailing Stop:** Below the rising 30-week moving average on a weekly closing basis
-
-### Ideal Market Conditions
-
-Stage 2 Breakouts work best in early-to-mid bull markets when the market is transitioning from pessimism to optimism. Avoid in late-stage bull markets where most stocks are already extended, and avoid entirely in bear markets.
-
-### Performance Summary
-
-| Metric | Value |
-|---|---|
-| Win Rate (Early Bull) | 65% |
-| Win Rate (Late Bull) | 42% |
-| Avg R-Multiple | 2.5 |
-| Avg Hold Days | 28 |
-| Sample Size | 60+ trades |
-| Source | Weinstein methodology backtest |
-
-### Pattern Illustration
-
-```
-Price
-  |                              /--- Stage 2 ->
-  |                             /
-  |     Stage 1 Base           / Breakout (2x vol)
-  |  ______/\____/\___________/
-  | /                        |
-  |/   30-week MA ---------> turns up
-  |________________________________
-       3+ months basing       ^
-```
-
-[EasySwing.trading](https://easyswing.trading/strategies) scans for Stage 2 Breakout setups daily across 2,000+ US stocks.
+Full treatment in [`resources/risk-management.md`](resources/risk-management.md). A practical stop-loss guide for each strategy family is at [swing trading stop-loss methods](https://easyswing.trading/blog/swing-trading-stop-loss).
 
 ---
 
-## 8. Bull Flag / Pennant
+## Resources and further reading
 
-The Bull Flag is a continuation pattern that offers a low-risk entry after a strong directional move pauses in a tight consolidation. Backtested across momentum stocks, it produces a 60-67% win rate with an average reward-to-risk of 1.6:1 (Source: Thomas Bulkowski, *Encyclopedia of Chart Patterns*, 2021).
+A curated set of further-reading links — books, papers, and live tools — lives in [`RESOURCES.md`](RESOURCES.md).
 
-### Why It Works
+### Strategy deep-dives in this repo
 
-After a sharp advance (the flagpole), profit-taking creates a brief, orderly pullback on declining volume. The tight range signals that sellers are exhausted and buyers are simply waiting for the next catalyst. When volume returns on the breakout, the prior momentum resumes.
-
-> "Bull flags have a success rate of 67% with an average rise of 23%." -- Thomas Bulkowski
-
-### Entry Rules
-
-1. Prior strong move up (flagpole) of 10% or more in 1-3 weeks
-2. Tight consolidation on declining volume (the flag) lasting 5-15 bars
-3. Price stays above the EMA(21) during the flag
-4. Flag duration is less than 50% of the flagpole duration
-5. Breakout above the flag high on a volume surge (above 50-day average)
-
-### Exit Rules
-
-- **Stop Loss:** Below the flag low or 1.5x ATR below entry
-- **Target 1:** Measured move -- the flagpole length projected upward from the breakout point
-- **Target 2:** 1.5x the measured move
-- **Trailing Stop:** Below the most recent swing low
-
-### Ideal Market Conditions
-
-Bull Flags work best in trending markets with broad momentum. The pattern is less reliable in late-stage moves where the flagpole may represent a climax run rather than the start of a new leg. Avoid in low-volume environments.
-
-### Performance Summary
-
-| Metric | Value |
-|---|---|
-| Win Rate (Trending) | 67% |
-| Win Rate (Ranging) | 44% |
-| Avg R-Multiple | 1.6 |
-| Avg Hold Days | 5 |
-| Sample Size | 75+ trades |
-| Source | Bulkowski, *Encyclopedia of Chart Patterns* |
-
-### Pattern Illustration
-
-```
-Price
-  |                  /--- Breakout (measured move) ->
-  |                 /
-  |        --------/  <- Flag (5-15 bars, declining vol)
-  |       / \     /
-  |      /   \___/
-  |     /  Flagpole
-  |    /   (10%+ move)
-  |___/____________________________
-```
-
-[EasySwing.trading](https://easyswing.trading/strategies) scans for Bull Flag setups daily across 2,000+ US stocks.
-
----
-
-## 9. Anchored VWAP Bounce
-
-The Anchored VWAP Bounce is an institutional-flow setup that identifies support at volume-weighted average price levels anchored to significant events. Across tested anchor points, it produces a 55-63% win rate with an average reward-to-risk of 1.4:1 (Source: Brian Shannon, *Technical Analysis Using Multiple Timeframes*; quantified backtests).
-
-### Why It Works
-
-Institutional traders anchor their VWAP calculations to events that caused them to build positions: earnings reports, IPO dates, 52-week highs. When price returns to these levels, the same institutions often defend their average cost by adding shares. This creates reliable support that retail traders can identify and exploit.
-
-### Entry Rules
-
-1. Identify a significant anchor point (earnings gap, IPO date, major pivot high/low)
-2. Price pulls back to the anchored VWAP level calculated from that event
-3. Price shows support at the AVWAP with 2-3 candles holding above it
-4. Volume picks up on the bounce candles
-5. RSI(14) is above 40 at the time of the bounce
-
-### Exit Rules
-
-- **Stop Loss:** 1.0x ATR below the AVWAP level
-- **Target 1:** 1.5x ATR above entry
-- **Target 2:** Prior swing high
-- **Trailing Stop:** Below the most recent swing low or 1.5x ATR from highs
-
-### Ideal Market Conditions
-
-Anchored VWAP Bounces work in trending-up and ranging markets where institutions are actively managing positions. The setup requires a clearly identifiable anchor event. Avoid in bear markets or for stocks with no clear institutional anchor point.
-
-### Performance Summary
-
-| Metric | Value |
-|---|---|
-| Win Rate (Trending Up) | 63% |
-| Win Rate (Bear Market) | 38% |
-| Avg R-Multiple | 1.4 |
-| Avg Hold Days | 6 |
-| Sample Size | 50+ trades |
-| Source | Shannon methodology / quantified backtest |
-
-### Pattern Illustration
-
-```
-Price
-  |  Earnings Gap
-  |  |   /\
-  |  v  /  \          /--- Bounce ->
-  |  __/    \        /
-  |          \      / Support at AVWAP
-  |    AVWAP--\----x-----------
-  |            \  /
-  |             \/  Pullback to AVWAP
-  |________________________________
-```
-
-[EasySwing.trading](https://easyswing.trading/strategies) scans for Anchored VWAP Bounce setups daily across 2,000+ US stocks.
-
----
-
-## 10. Triple RSI Divergence
-
-The Triple RSI Divergence is a reversal setup that identifies exhaustion when price makes three consecutive new extremes while RSI fails to confirm. Across ranging and transitioning markets, it produces a 50-58% win rate with an average reward-to-risk of 1.8:1 (Source: Andrew Cardwell RSI methodology; quantified backtests).
-
-### Why It Works
-
-Single divergences fail frequently. Double divergences are more reliable. Triple divergences represent a rare and powerful exhaustion signal -- three attempts by price to extend the trend, each met with diminishing momentum. This triple failure dramatically increases the probability of a reversal.
-
-### Entry Rules (Bullish)
-
-1. Price makes 3 consecutive lower lows
-2. RSI(14) makes 3 corresponding higher lows (bullish divergence)
-3. The third divergence occurs near a known support level
-4. Volume is declining into the pattern (selling exhaustion)
-5. A confirmation candle appears: bullish engulfing, hammer, or morning star
-
-### Entry Rules (Bearish)
-
-1. Price makes 3 consecutive higher highs
-2. RSI(14) makes 3 corresponding lower highs (bearish divergence)
-3. The third divergence occurs near a known resistance level
-4. Volume is declining into the pattern
-5. A confirmation candle appears: bearish engulfing, shooting star, or evening star
-
-### Exit Rules
-
-- **Stop Loss:** Below the lowest low of the divergence pattern (bullish) or above the highest high (bearish)
-- **Target 1:** First major support/resistance level
-- **Target 2:** 2.0x ATR from entry
-- **Trailing Stop:** 5% from the extreme, or below the most recent swing low/high
-
-### Ideal Market Conditions
-
-Triple RSI Divergence works best in ranging and transitioning markets where prices oscillate between support and resistance. Avoid in strong trending markets where divergences can persist for weeks before resolving.
-
-### Performance Summary
-
-| Metric | Value |
-|---|---|
-| Win Rate (Ranging) | 58% |
-| Win Rate (Strong Trend) | 35% |
-| Avg R-Multiple | 1.8 |
-| Avg Hold Days | 8 |
-| Sample Size | 40+ trades |
-| Source | Cardwell RSI methodology / quantified backtest |
-
-### Pattern Illustration
-
-```
-Price                          RSI
-  |  \                          |           /\  /\  /\
-  |   \  \                     |          /  \/  \/
-  |    \  \  \                 |         /
-  |     1  2  3  <- Lower     |        1  2  3  <- Higher
-  |               lows        |                   lows
-  |         Reversal ->       |
-  |________________________   |________________________
-```
-
-[EasySwing.trading](https://easyswing.trading/strategies) scans for Triple RSI Divergence setups daily across 2,000+ US stocks.
-
----
-
-## Market Regime Guide
-
-Not every strategy works in every market environment. Matching your strategy to the current market regime is one of the most important decisions a swing trader can make.
-
-| Regime | Description | Best Strategies | Avoid |
-|---|---|---|---|
-| Trending Up | Major indices above rising 50/200 SMA, breadth expanding | VCP, Cup & Handle, EMA Crossover, Stage 2, Bull Flag | Triple RSI Divergence |
-| Trending Down | Indices below falling 50/200 SMA, breadth contracting | Triple RSI Divergence (bearish), short setups | VCP, Cup & Handle, Stage 2 |
-| Ranging | Indices oscillating in a defined range, flat SMAs | RSI Pullback, AVWAP Bounce, Triple RSI Divergence | EMA Crossover, Stage 2 |
-| High Volatility | VIX above 25, large daily swings, news-driven | VWAP Reclaim (reduced size) | VCP, Cup & Handle, Bull Flag |
-| Transitioning | Regime shift underway, mixed signals | Triple RSI Divergence, Power Earnings Gap | Stage 2, EMA Crossover |
-
----
-
-## Risk Management Principles
-
-No strategy produces consistent profits without disciplined risk management. These principles apply to every setup listed above.
-
-**Position sizing.** Risk no more than 1-2% of total account equity on any single trade. Calculate position size as: `Account Risk / (Entry - Stop)`.
-
-**R-multiple tracking.** Measure every trade outcome in multiples of the initial risk (R). A trade risking $1 per share that gains $2 per share is a 2R winner. Track your average R-multiple over 20+ trades to measure edge.
-
-**Correlation awareness.** Avoid concentrating in a single sector or correlated group. Five breakout trades in semiconductor stocks is functionally one large bet on semiconductors.
-
-**Maximum open positions.** Limit total open positions to 6-10 depending on account size and market regime. Reduce exposure in high-volatility regimes.
-
----
-
-## Resources and Further Reading
-
-**Live scanning and tools:**
-- [EasySwing.trading Strategies Page](https://easyswing.trading/strategies) -- live scanning for all strategies listed above
-- [EasySwing.trading Methodology](https://easyswing.trading/methodology) -- how we backtest and validate strategies
-- [EasySwing.trading Blog](https://easyswing.trading/blog) -- deep-dive strategy articles and market analysis
-
-**Books:**
-- Minervini, M. (2013). *Trade Like a Stock Market Wizard*. McGraw-Hill.
-- O'Neil, W. (2009). *How to Make Money in Stocks*. McGraw-Hill, 4th edition.
-- Weinstein, S. (1988). *Secrets for Profiting in Bull and Bear Markets*. McGraw-Hill.
-- Connors, L. (2009). *Short Term Trading Strategies That Work*. TradingMarkets.
-- Bulkowski, T. (2021). *Encyclopedia of Chart Patterns*. Wiley, 3rd edition.
-
-**Individual strategy deep-dives:**
 - [VCP Volatility Contraction Pattern](strategies/01-vcp.md)
 - [Cup and Handle](strategies/02-cup-and-handle.md)
-- [EMA Crossover](strategies/03-ema-crossover.md)
-- [RSI Pullback](strategies/04-rsi-pullback.md)
-- [VWAP Reclaim](strategies/05-vwap-reclaim.md)
 - [Power Earnings Gap](strategies/06-power-earnings-gap.md)
-- [Stage 2 Breakout](strategies/07-stage-2-breakout.md)
-- [Bull Flag](strategies/08-bull-flag.md)
-- [Anchored VWAP Bounce](strategies/09-anchored-vwap-bounce.md)
+- [Qullamaggie Breakout](strategies/11-qullamaggie-breakout.md)
+- [Multi-Period Strength](strategies/12-multi-period-strength.md)
+- [MA Stack Confluence](strategies/13-ma-stack-confluence.md)
+- [ADX Trend Momentum](strategies/14-adx-trend-momentum.md)
+- [Residual Momentum](strategies/15-residual-momentum.md)
+- [Trend Template Fresh Pass](strategies/16-trend-template-fresh-pass.md)
+- [Volume-Weighted Trend](strategies/17-volume-weighted-trend.md)
+- [ROC Breakout](strategies/18-roc-breakout.md)
+- [HHV Breakout (Donchian)](strategies/19-hhv-breakout.md)
+- [Frog-in-the-Pan](strategies/20-frog-in-the-pan.md)
+- [Proximity Pullback (52-week high)](strategies/21-proximity-pullback.md)
+- [RSI Reversion (Connors)](strategies/22-rsi-reversion.md)
+- [Trend Pullback (EMA20/SMA50)](strategies/23-trend-pullback.md)
+
+### Honorable mentions
+
+- [EMA Crossover (9/21)](strategies/03-ema-crossover.md)
+- [RSI Pullback to 40](strategies/04-rsi-pullback.md)
+- [VWAP Reclaim](strategies/05-vwap-reclaim.md)
+- [Stage 2 Breakout (Weinstein)](strategies/07-stage-2-breakout.md)
+- [Bull Flag / Pennant](strategies/08-bull-flag.md)
+- [Anchored VWAP Bounce](strategies/09-anchored-vwap.md)
 - [Triple RSI Divergence](strategies/10-triple-rsi-divergence.md)
+
+### Resource notes
+
+- [Glossary of swing trading terms](resources/glossary.md)
+- [Market regime guide](resources/market-regimes.md)
+- [Risk management for swing traders](resources/risk-management.md)
+
+---
+
+## Methodology honesty notes
+
+Anywhere this repo refers to "tuned" or "tuned-provisional" status, here's what that means and doesn't mean:
+
+- **Walk-forward backtest.** Strategies are tuned on a training window and evaluated on a never-touched holdout window. The training window doesn't see any holdout data.
+- **Parameter robustness.** Each tuned configuration is required to retain a profit factor ≥ 1.0 across a ±10–20% parameter neighborhood. Single-cell point estimates are rejected.
+- **Permutation null.** Holdout p-values are computed against shuffled-return permutations. When the detector's intrinsic gates already filter the universe exhaustively, the permutation null degenerates to ~1.0; in that case we accept strong holdout PF plus robust neighborhood plus positive Sharpe as evidence and tag the verdict "provisional" rather than "tuned." Tuned-provisional setups are surfaced for inspection; their tuned parameters are NOT live-adopted.
+- **Sharpe haircut.** A scalar haircut is applied to raw Sharpe to account for multiple testing. This is an informal approximation, not the full Bailey/López de Prado Deflated Sharpe Ratio. We don't claim it is.
+- **Holdout is roughly the last 12 months.** As of the most recent sweep, that's roughly mid-2025 through April 2026.
+- **What this proves.** That on a specific holdout window with specific gates and a specific universe, the strategy did not behave like noise. It is evidence, not a guarantee.
+- **What this doesn't prove.** That the next 12 months look like the last 12. Regime change breaks strategies. Always size positions as if any single strategy could stop working tomorrow.
+
+For the canonical write-up and current verdict status see [EasySwing.trading/performance](https://easyswing.trading/performance).
 
 ---
 
@@ -684,34 +312,38 @@ No strategy produces consistent profits without disciplined risk management. The
 
 ### What is the best swing trading strategy for beginners?
 
-The RSI Pullback to 40 is the most beginner-friendly swing trading strategy. It has the highest win rate (70-78%), the shortest average hold time (3-5 days), and the simplest entry rules. The high win rate builds confidence while limiting drawdown exposure. Once consistent with RSI Pullbacks, beginners can graduate to momentum setups like the VCP or Bull Flag.
+For new swing traders, the **Trend Pullback** is the most forgiving structure: enter strong uptrends on pullbacks to a rising moving average. The hard gates do most of the work, and the entry trigger is mechanical. Avoid catalyst-driven setups (Power Earnings Gap) and short-horizon mean-reversion (RSI Reversion) until you can hold position-management discipline for 3+ weeks.
 
 ### How long should you hold a swing trade?
 
-Most swing trades last between 3 and 15 trading days. The specific hold time depends on the strategy: RSI Pullbacks average 3-5 days, Bull Flags average 3-8 days, and Stage 2 Breakouts can extend to 15-40 days. Let your trailing stop and targets dictate the exit -- not an arbitrary time limit.
+Most swing trades last 3–15 trading days. RSI Reversion bounces resolve in 1–5 bars. Momentum continuation (VCP, Qullamaggie, Cup & Handle) typically holds 8–20 bars. Position-style entries (Trend Template Fresh Pass, Residual Momentum) can extend beyond 30. Let the trailing stop dictate exit, not an arbitrary calendar.
 
-### What win rate do you need for profitable swing trading?
+### Do you need a high win rate to be profitable?
 
-A win rate as low as 40% can be profitable if your average winner is large enough relative to your average loser. What matters is the expected value: `(Win Rate x Avg Win) - (Loss Rate x Avg Loss)`. A strategy with a 50% win rate and 1.8:1 reward-to-risk ratio is more profitable than one with a 75% win rate and 0.5:1 ratio.
+No. A 40% win rate strategy with 3:1 R:R has higher expected value than a 75% win rate strategy with 0.5:1. Win rate alone is a useless number without the R-multiple context. Track expected R per trade, not hit rate.
 
-### What indicators are best for swing trading?
+### What indicators are actually load-bearing for these setups?
 
-The most consistently useful indicators for swing trading are: RSI(14) for momentum and divergence, EMA(9)/EMA(21) for trend direction, SMA(50)/SMA(200) for long-term trend context, ATR(14) for stop and target placement, and volume (50-day average comparison) for confirming breakouts. Avoid using more than 3-4 indicators simultaneously -- they create conflicting signals.
+Across the credentialed strategy set: RSI (used as a filter and an entry trigger), EMA / SMA (trend filter and pullback reference), ADX (regime/trend strength confirmation), ATR (stops and targets), volume (breakout validation), and RS rank (cross-sectional strength). Most setups use 2–4 of these together. More indicators = more conflicting signals.
 
-### How much capital do you need for swing trading?
+### How is the credentialing process different from a regular backtest?
 
-For US equities, a minimum of $25,000 is recommended to avoid the Pattern Day Trader (PDT) rule and to allow proper position sizing with 1-2% risk per trade. With $25,000 and 1% risk, you can risk $250 per trade, which is sufficient for most setups with stops 2-5% from entry.
+A regular backtest fits parameters to historical data and reports the result. Our process splits data into train and holdout, requires robustness across parameter neighborhoods, runs a permutation null, and applies a Sharpe haircut for multiple testing. Strategies that pass the gates on the holdout — not on the training data — get the tuned tag. See the methodology notes above.
 
 ### Should you swing trade in a bear market?
 
-Most swing trading strategies listed here are designed for long (bullish) setups and perform poorly in bear markets. If you swing trade during a bear market, focus on reversal setups like Triple RSI Divergence (bearish), reduce position sizes by 50%, and raise your win-rate threshold for entries. Many experienced swing traders simply move to cash or short-only strategies during confirmed downtrends.
+Most strategies in this repo are long-biased and lose money systematically in bear markets. The historically correct response to a confirmed downtrend is cash or short-only exposure. We have one bearish setup ([Bear Flag](https://easyswing.trading/blog/bear-flag-short-setup-downtrend)) but it's not in the long-side credentialed table because the universe and risk profile are different. Bear-market discipline = smaller positions or no positions.
+
+### Where can I see this applied live?
+
+The screener at [EasySwing.trading/strategies](https://easyswing.trading/strategies) runs these detectors against ~2,000 US equities every trading day, applies the current market regime gate, and surfaces only the credentialed setups graded A or B. The [strategies hub](https://easyswing.trading/strategies) lists every detector that's currently live; the [performance page](https://easyswing.trading/performance) shows the empirical record for each.
 
 ---
 
 ## Disclaimer
 
-This repository is for educational and informational purposes only. Nothing here constitutes investment advice, a recommendation, or a solicitation to buy or sell any security. Past performance and backtested results do not guarantee future returns. All win rates and R-multiples cited are based on historical backtests with specific parameters and may not reflect real-world trading conditions, slippage, or commissions. Always do your own research and consult a qualified financial advisor before making trading decisions. Use at your own risk.
+This repository is for educational and informational purposes only. Nothing here is investment advice, a recommendation, or a solicitation. Past performance and backtested results do not guarantee future returns. All performance numbers cited are based on historical backtests with specific parameters and may not reflect live trading conditions, slippage, commissions, or your specific account. The author and contributors are not licensed financial advisors. Do your own research and consult a qualified financial advisor before making trading decisions. Trade at your own risk.
 
 ---
 
-Built and maintained by **Wibo**, Head of Technology, Amsterdam -- creator of [EasySwing.trading](https://easyswing.trading), a swing trading screener scanning 2,000+ US stocks for these setups daily.
+Maintained by **Wibo** in Amsterdam, alongside [EasySwing.trading](https://easyswing.trading) — a swing-trading screener that scans ~2,000 US equities for these setups daily.
